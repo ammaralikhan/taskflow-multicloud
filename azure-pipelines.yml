@@ -1,18 +1,13 @@
-# azure-pipelines.yml
-# Purpose: Build, scan, and deploy TaskFlow API to Azure App Service (Docker)
-# Runs on: Self-hosted macOS agent (your MacBook)
-# Cost: $0 (uses Free Tier App Service + Docker Hub)
-
 trigger:
   branches:
     include:
       - main
 
 pool:
-  name: default  # Uses your self-hosted agent pool
+  name: default
 
 variables:
-- group: docker-hub-secrets  # Must exist in Azure DevOps Library
+- group: docker-hub-secrets
 
 stages:
 - stage: Build_and_Scan
@@ -30,6 +25,9 @@ stages:
       displayName: 'Build Docker image'
 
     - script: |
+        # Clean up any conflicting Trivy installs
+        brew list trivy &>/dev/null && brew uninstall trivy
+        brew tap aquasecurity/trivy
         brew install aquasecurity/trivy/trivy
         trivy image --severity HIGH,CRITICAL --exit-code 1 taskflow-api:$(Build.BuildId)
       displayName: 'Trivy: Scan container for CVEs'
