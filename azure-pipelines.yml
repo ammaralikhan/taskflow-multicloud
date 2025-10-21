@@ -2,13 +2,10 @@ trigger:
   branches:
     include:
       - main
-
 pool:
   name: default
-
 variables:
 - group: docker-hub-secrets
-
 stages:
 - stage: Build_and_Scan
   displayName: 'Build Docker Image & Security Scan'
@@ -18,28 +15,22 @@ stages:
     steps:
     - checkout: self
       fetchDepth: 1
-
     - script: |
         docker build -t taskflow-api:$(Build.BuildId) ./src/api
         docker tag taskflow-api:$(Build.BuildId) taskflow-api:latest
       displayName: 'Build Docker image'
-
     - script: |
-        # Clean up any conflicting Trivy installs
         brew list trivy &>/dev/null && brew uninstall trivy
         brew tap aquasecurity/trivy
         brew install aquasecurity/trivy/trivy
         trivy image --severity HIGH,CRITICAL --exit-code 1 taskflow-api:$(Build.BuildId)
       displayName: 'Trivy: Scan container for CVEs'
       condition: succeeded()
-
     - script: |
         cd src/api
-        npm ci --omit=dev
         npm audit --audit-level high --omit=dev
       displayName: 'npm audit: Check for vulnerable dependencies'
       condition: succeeded()
-
     - script: |
         echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USER}" --password-stdin
         docker tag taskflow-api:$(Build.BuildId) ${DOCKERHUB_USER}/taskflow-api:$(Build.BuildId)
@@ -50,7 +41,6 @@ stages:
         DOCKERHUB_USER: $(DOCKERHUB_USER)
         DOCKERHUB_PASSWORD: $(DOCKERHUB_PASSWORD)
       displayName: 'Push image to Docker Hub'
-
 - stage: Deploy_Azure
   displayName: 'Deploy to Azure App Service'
   dependsOn: Build_and_Scan
