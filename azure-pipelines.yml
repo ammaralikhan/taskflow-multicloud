@@ -1,14 +1,18 @@
 # azure-pipelines.yml
+# Purpose: Build, scan, and deploy TaskFlow API to Azure App Service (Docker)
+# Runs on: Self-hosted macOS agent (your MacBook)
+# Cost: $0 (uses Free Tier App Service + Docker Hub)
+
 trigger:
   branches:
     include:
       - main
 
 pool:
-  name: default
+  name: default  # Uses your self-hosted agent pool
 
 variables:
-- group: docker-hub-secrets  # We'll create this in Azure DevOps UI
+- group: docker-hub-secrets  # Must exist in Azure DevOps Library
 
 stages:
 - stage: Build_and_Scan
@@ -38,14 +42,15 @@ stages:
       condition: succeeded()
 
     - script: |
-        echo $(DOCKERHUB_PASSWORD) | docker login -u $(DOCKERHUB_USER) --password-stdin
-        docker tag taskflow-api:$(Build.BuildId) $(DOCKERHUB_USER)/taskflow-api:$(Build.BuildId)
-        docker push $(DOCKERHUB_USER)/taskflow-api:$(Build.BuildId)
-        docker tag $(DOCKERHUB_USER)/taskflow-api:$(Build.BuildId) $(DOCKERHUB_USER)/taskflow-api:latest
-        docker push $(DOCKERHUB_USER)/taskflow-api:latest
-      displayName: 'Push image to Docker Hub'
+        echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USER}" --password-stdin
+        docker tag taskflow-api:$(Build.BuildId) ${DOCKERHUB_USER}/taskflow-api:$(Build.BuildId)
+        docker push ${DOCKERHUB_USER}/taskflow-api:$(Build.BuildId)
+        docker tag ${DOCKERHUB_USER}/taskflow-api:$(Build.BuildId) ${DOCKERHUB_USER}/taskflow-api:latest
+        docker push ${DOCKERHUB_USER}/taskflow-api:latest
       env:
+        DOCKERHUB_USER: $(DOCKERHUB_USER)
         DOCKERHUB_PASSWORD: $(DOCKERHUB_PASSWORD)
+      displayName: 'Push image to Docker Hub'
 
 - stage: Deploy_Azure
   displayName: 'Deploy to Azure App Service'
