@@ -35,6 +35,7 @@ stages:
 
     - script: |
         cd src/api
+        npm ci --omit=dev
         npm audit --audit-level high --omit=dev
       displayName: 'npm audit: Check for vulnerable dependencies'
       condition: succeeded()
