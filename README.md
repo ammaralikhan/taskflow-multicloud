@@ -1,4 +1,4 @@
-**TaskFlow: Zero-Cost Multicloud DevOps Pipeline**
+# TaskFlow: Zero-Cost Multicloud DevOps Pipeline**
 
 A secure, containerized Node.js API deployed across **Azure** and **GCP** using **CI/CD**, **infrastructure-as-code**, and **security scanning** — all within **free-tier limits**.
 
@@ -9,7 +9,7 @@ A secure, containerized Node.js API deployed across **Azure** and **GCP** using 
 
 ---
 
-Goal
+## Goal
 
 Demonstrate **true multicloud parity** by deploying the **same Docker image** to:
 - Azure App Service (Linux Container, West Europe)
@@ -22,7 +22,7 @@ All while enforcing:
 
 ---
 
-**Architecture Overview**
+## Architecture Overview
 
 ```plaintext
 [GitHub Repository]
@@ -32,3 +32,8 @@ All while enforcing:
                   [GCP Cloud Run] ← (live, $0)
                           ↓
              [Terraform IaC (Azure + GCP)]
+
+## 🌐 Public Demo
+- **Live on GCP (Free Tier)**: [https://taskflow-gcp-466496905373.us-central1.run.app](https://taskflow-gcp-466496905373.us-central1.run.app)
+
+> 💡 Azure App Service was used for validation and will be deleted after free credit expires (Nov 5). GCP serves as the permanent, $0 endpoint.
