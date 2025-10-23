@@ -2,17 +2,11 @@ trigger:
   branches:
     include:
       - main
-
 pool:
-  name: default   # your self-hosted macOS agent pool
-
+  name: default
 variables:
 - group: docker-hub-secrets
-
 stages:
-# ============================================================
-# 1️⃣ Build, Scan, and Push Docker Image
-# ============================================================
 - stage: Build_and_Scan
   displayName: 'Build Docker Image & Security Scan'
   jobs:
@@ -21,31 +15,24 @@ stages:
     steps:
     - checkout: self
       fetchDepth: 1
-
     - script: |
-        echo "🔧 Building Docker image..."
         docker build -t taskflow-api:$(Build.BuildId) ./src/api
         docker tag taskflow-api:$(Build.BuildId) taskflow-api:latest
       displayName: 'Build Docker image'
-
     - script: |
-        echo "🧪 Installing Trivy for vulnerability scan..."
+        brew list trivy &>/dev/null && brew uninstall trivy
+        brew tap aquasecurity/trivy
         brew install aquasecurity/trivy/trivy
-        trivy image --severity HIGH,CRITICAL taskflow-api:$(Build.BuildId) || true
-      displayName: 'Trivy: Scan (non-blocking)'
+        trivy image --severity HIGH,CRITICAL --exit-code 1 taskflow-api:$(Build.BuildId)
+      displayName: 'Trivy: Scan container for CVEs'
       condition: succeeded()
-
     - script: |
-        echo "🔍 Running npm audit..."
         cd src/api
-        npm audit --audit-level high --omit=dev || true
-      displayName: 'npm audit: Check dependencies'
+        npm audit --audit-level high --omit=dev
+      displayName: 'npm audit: Check for vulnerable dependencies'
       condition: succeeded()
-
     - script: |
-        echo "📦 Logging into Docker Hub..."
         echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USER}" --password-stdin
-        echo "🚀 Pushing Docker images..."
         docker tag taskflow-api:$(Build.BuildId) ${DOCKERHUB_USER}/taskflow-api:$(Build.BuildId)
         docker push ${DOCKERHUB_USER}/taskflow-api:$(Build.BuildId)
         docker tag ${DOCKERHUB_USER}/taskflow-api:$(Build.BuildId) ${DOCKERHUB_USER}/taskflow-api:latest
@@ -54,10 +41,6 @@ stages:
         DOCKERHUB_USER: $(DOCKERHUB_USER)
         DOCKERHUB_PASSWORD: $(DOCKERHUB_PASSWORD)
       displayName: 'Push image to Docker Hub'
-
-# ============================================================
-# 2️⃣ Deploy to Azure App Service (Docker)
-# ============================================================
 - stage: Deploy_Azure
   displayName: 'Deploy to Azure App Service'
   dependsOn: Build_and_Scan
@@ -70,24 +53,11 @@ stages:
       runOnce:
         deploy:
           steps:
-          - script: |
-              echo "🔐 Using Azure CLI context for deployment..."
-              az account show
-              echo "🚀 Deploying container image to App Service..."
-              az webapp config container set \
-                --name taskflow-docker \
-                --resource-group rg-taskflow-docker \
-                --docker-custom-image-name ${DOCKERHUB_USER}/taskflow-api:$(Build.BuildId) \
-                --docker-registry-server-url https://index.docker.io
-              echo "♻️ Restarting App Service..."
-              az webapp restart --name taskflow-docker --resource-group rg-taskflow-docker
-            env:
-              DOCKERHUB_USER: $(DOCKERHUB_USER)
-            displayName: 'Deploy container to Azure App Service'
-
-          - script: |
-              echo "⏳ Waiting 30s for container to boot..."
-              sleep 30
-              echo "🔎 Checking app health..."
-              curl -I https://taskflow-docker.azurewebsites.net || true
-            displayName: 'Verify deployment health'
+          - task: AzureWebAppContainer@1
+            inputs:
+              appName: 'taskflow-docker'
+              appType: 'webAppContainerLinux'
+              containerRegistry: 'DockerHub'
+              dockerNamespace: '$(DOCKERHUB_USER)'
+              dockerRepository: 'taskflow-api'
+              dockerImageTag: '$(Build.BuildId)'

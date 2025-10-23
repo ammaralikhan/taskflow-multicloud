@@ -1,0 +1,42 @@
+steps:
+  # 1. Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', '$_IMAGE_PUSH', './src/api']
+
+  # 2. Log in to Docker Hub using Secret Manager
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    secretEnv: ['DOCKERHUB_PAT']
+    args:
+      - '-c'
+      - |
+        # Install gcloud
+        curl https://sdk.cloud.google.com | bash
+        source /root/google-cloud-sdk/path.bash.inc
+        # Fetch PAT and log in
+        echo "$$DOCKERHUB_PAT" | docker login -u "$_DOCKERHUB_USER" --password-stdin
+
+  # 3. Push to Docker Hub
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '$_IMAGE_PUSH']
+
+  # 4. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'taskflow-gcp'
+      - '--image=$_IMAGE_PUSH'
+      - '--platform=managed'
+      - '--region=us-central1'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+
+images:
+  - '$_IMAGE_PUSH'
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/docker-hub-pat/versions/latest
+      env: 'DOCKERHUB_PAT'

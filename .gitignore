@@ -1,1 +1,5 @@
 node_modules/
+taskflow-cicd-key.json
+terraform/terraform.tfstate
+terraform/terraform.tfvars
+terraform/terraform.tfvars
